@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Blogger 글쓰기</title></head>
+<body>
+  <h2>이미지 주소 입력 후 자동 게시</h2>
+
+  <input id="imageUrl" placeholder="이미지 주소" style="width:300px;">
+  <select id="size">
+    <option value="normal">기본형</option>
+    <option value="thumb">썸네일</option>
+    <option value="full">원본</option>
+  </select>
+  <button onclick="createBloggerPost()">📝 게시하기</button>
+
+  <div id="postStatus" style="margin-top:10px;"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get("token");
+
+    function getImageHtml(url, type) {
+      if (type === "thumb") return `<img src="${url}" width="200"/>`;
+      if (type === "full") return `<img src="${url}" style="max-width:100%"/>`;
+      return `<img src="${url}" width="800"/>`;
+    }
+
+    async function getBlogId(token) {
+      const res = await fetch("https://www.googleapis.com/blogger/v3/users/self/blogs", {
+        headers: { Authorization: "Bearer " + token }
+      });
+      const data = await res.json();
+      return data.items[0].id;
+    }
+
+    async function createBloggerPost() {
+      const imageUrl = document.getElementById("imageUrl").value;
+      const size = document.getElementById("size").value;
+      const contentHtml = getImageHtml(imageUrl, size);
+      const blogId = await getBlogId(accessToken);
+
+      const postData = { title: "자동 게시", content: contentHtml };
+
+      const res = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + accessToken,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(postData)
+      });
+
+      const result = await res.json();
+
+      if (result.id) {
+        document.getElementById("postStatus").innerHTML =
+          `✅ 게시 완료: <a href="${result.url}" target="_blank">[보기]</a>`;
+      } else {
+        document.getElementById("postStatus").innerText = "❌ 게시 실패";
+      }
+    }
+  </script>
+</body>
+</html>
