@@ -1,28 +1,25 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Blogger 글쓰기</title></head>
+<head>
+  <meta charset="UTF-8">
+  <title>Blogger 다중 동영상 포스터</title>
+</head>
 <body>
-  <h2>이미지 주소 입력 후 자동 게시</h2>
+  <h1>Blogger 자동 동영상 포스터</h1>
 
-  <input id="imageUrl" placeholder="이미지 주소" style="width:300px;">
-  <select id="size">
-    <option value="normal">기본형</option>
-    <option value="thumb">썸네일</option>
-    <option value="full">원본</option>
-  </select>
-  <button onclick="createBloggerPost()">📝 게시하기</button>
+  <label>📌 게시물 제목</label><br>
+  <input type="text" id="postTitle" placeholder="제목 입력" style="width:300px;"><br><br>
 
-  <div id="postStatus" style="margin-top:10px;"></div>
+  <label>🎬 동영상 주소 (여러 개 줄바꿈 입력)</label><br>
+  <textarea id="videoUrls" placeholder="한 줄에 하나씩 붙여넣으세요" rows="6" style="width:500px;"></textarea><br><br>
+
+  <button onclick="createBloggerPost()">📝 게시물 작성</button>
+
+  <div id="postStatus" style="margin-top:15px; color:blue;"></div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get("token");
-
-    function getImageHtml(url, type) {
-      if (type === "thumb") return `<img src="${url}" width="200"/>`;
-      if (type === "full") return `<img src="${url}" style="max-width:100%"/>`;
-      return `<img src="${url}" width="800"/>`;
-    }
 
     async function getBlogId(token) {
       const res = await fetch("https://www.googleapis.com/blogger/v3/users/self/blogs", {
@@ -32,13 +29,36 @@
       return data.items[0].id;
     }
 
+    function generateVideoHtml(urls) {
+      return urls.map(url => {
+        const escaped = url.trim().replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+        return `<p><video src="${escaped}" autoplay="true" loop="true" height="500" controls muted></video></p>`;
+      }).join("\n");
+    }
+
     async function createBloggerPost() {
-      const imageUrl = document.getElementById("imageUrl").value;
-      const size = document.getElementById("size").value;
-      const contentHtml = getImageHtml(imageUrl, size);
+      const title = document.getElementById("postTitle").value.trim();
+      const rawUrls = document.getElementById("videoUrls").value.trim();
+
+      if (!title || !rawUrls) {
+        alert("❗ 제목과 동영상 주소를 모두 입력하세요.");
+        return;
+      }
+
+      if (!accessToken) {
+        alert("❌ 토큰이 없습니다. login.html에서 먼저 로그인하세요.");
+        return;
+      }
+
+      const urlList = rawUrls.split("\n").map(line => line.trim()).filter(line => line !== "");
+      const contentHtml = generateVideoHtml(urlList);
+
       const blogId = await getBlogId(accessToken);
 
-      const postData = { title: "자동 게시", content: contentHtml };
+      const postData = {
+        title: title,
+        content: contentHtml
+      };
 
       const res = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
         method: "POST",
@@ -53,9 +73,10 @@
 
       if (result.id) {
         document.getElementById("postStatus").innerHTML =
-          `✅ 게시 완료: <a href="${result.url}" target="_blank">[보기]</a>`;
+          `✅ 게시 성공! <a href="${result.url}" target="_blank">🔗 게시물 보기</a>`;
       } else {
         document.getElementById("postStatus").innerText = "❌ 게시 실패";
+        console.error(result);
       }
     }
   </script>
