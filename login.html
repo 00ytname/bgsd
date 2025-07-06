@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head><title>Google 로그인</title></head>
+<body>
+  <button onclick="loginWithGoogle()">🔐 로그인</button>
+  <script>
+    const clientId = "1025411219889-6lnb94chf48tgq0v6nkcgqqu22e0c2ib.apps.googleusercontent.com";
+    const redirectUri = "https://00ytname.github.io/bgsd/login.html";
+
+    function loginWithGoogle() {
+      const authUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
+        "?client_id=" + clientId +
+        "&redirect_uri=" + encodeURIComponent(redirectUri) +
+        "&response_type=token" +
+        "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/blogger");
+      window.location.href = authUrl;
+    }
+
+    window.onload = function () {
+      const hash = window.location.hash;
+      if (hash.includes("access_token")) {
+        const token = new URLSearchParams(hash.substring(1)).get("access_token");
+        // 다음 페이지로 토큰 넘김
+        window.location.href = `write.html?token=${token}`;
+      }
+    };
+  </script>
+</body>
+</html>
