@@ -2,24 +2,66 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Blogger 다중 동영상 포스터</title>
+  <title>Blogger 포스팅 도구</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    textarea, input, select { margin-bottom: 10px; }
+  </style>
 </head>
 <body>
-  <h1>Blogger 자동 동영상 포스터</h1>
+  <h2>📤 Blogger 자동 포스팅</h2>
 
-  <label>📌 게시물 제목</label><br>
-  <input type="text" id="postTitle" placeholder="제목 입력" style="width:300px;"><br><br>
+  <label>제목:</label><br>
+  <input id="postTitle" placeholder="게시물 제목" style="width: 400px;"><br><br>
 
-  <label>🎬 동영상 주소 (여러 개 줄바꿈 입력)</label><br>
-  <textarea id="videoUrls" placeholder="한 줄에 하나씩 붙여넣으세요" rows="6" style="width:500px;"></textarea><br><br>
+  <label>종류 선택:</label><br>
+  <input type="radio" name="mediaType" value="image" checked> 이미지
+  <input type="radio" name="mediaType" value="video"> 동영상<br><br>
+
+  <div id="videoOptions" style="display:none;">
+    <label>동영상 방식:</label><br>
+    <input type="radio" name="videoMode" value="original" checked> 원본 링크
+    <input type="radio" name="videoMode" value="imgur"> Imgur 변환<br><br>
+  </div>
+
+  <label>링크 입력 (여러 줄 가능):</label><br>
+  <textarea id="mediaUrls" rows="6" cols="60" placeholder="https://example.com/abc.jpg 또는 https://imgur.com/abc 등"></textarea><br>
 
   <button onclick="createBloggerPost()">📝 게시물 작성</button>
-
-  <div id="postStatus" style="margin-top:15px; color:blue;"></div>
+  <div id="postStatus" style="margin-top:20px; color:blue;"></div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get("token");
+
+    const mediaTypeRadios = document.getElementsByName("mediaType");
+    const videoOptions = document.getElementById("videoOptions");
+
+    // 이미지/동영상 선택에 따라 옵션 토글
+    mediaTypeRadios.forEach(radio => {
+      radio.addEventListener("change", () => {
+        videoOptions.style.display = radio.value === "video" ? "block" : "none";
+      });
+    });
+
+    function getImageHtml(url) {
+      return `<p style="text-align:center; margin: 20px 0;"><img src="${url}" style="max-width:500px;"></p>`;
+    }
+
+    function getVideoHtml(url, mode) {
+      let src = url.trim();
+
+      if (mode === "imgur") {
+        const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+        if (match) {
+          src = `https://i.imgur.com/${match[1]}.mp4`;
+        }
+      }
+
+      return `<p style="text-align:center; margin: 20px 0;">
+        <video src="${src.replace(/&/g, "&amp;")}" autoplay loop controls muted style="max-height:500px;"></video>
+      </p>`;
+    }
 
     async function getBlogId(token) {
       const res = await fetch("https://www.googleapis.com/blogger/v3/users/self/blogs", {
@@ -29,36 +71,34 @@
       return data.items[0].id;
     }
 
-    function generateVideoHtml(urls) {
-      return urls.map(url => {
-        const escaped = url.trim().replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-        return `<p><video src="${escaped}" autoplay="true" loop="true" height="500" controls muted></video></p>`;
-      }).join("\n");
-    }
-
     async function createBloggerPost() {
       const title = document.getElementById("postTitle").value.trim();
-      const rawUrls = document.getElementById("videoUrls").value.trim();
+      const urls = document.getElementById("mediaUrls").value.trim().split("\n").filter(line => line.trim() !== "");
+      const mediaType = [...document.getElementsByName("mediaType")].find(r => r.checked).value;
+      const videoMode = [...document.getElementsByName("videoMode")].find(r => r.checked)?.value;
 
-      if (!title || !rawUrls) {
-        alert("❗ 제목과 동영상 주소를 모두 입력하세요.");
+      if (!title || urls.length === 0) {
+        alert("제목과 링크를 모두 입력하세요.");
         return;
       }
 
       if (!accessToken) {
-        alert("❌ 토큰이 없습니다. login.html에서 먼저 로그인하세요.");
+        alert("❌ 토큰이 없습니다. login.html에서 로그인해주세요.");
         return;
       }
 
-      const urlList = rawUrls.split("\n").map(line => line.trim()).filter(line => line !== "");
-      const contentHtml = generateVideoHtml(urlList);
-
       const blogId = await getBlogId(accessToken);
+      let contentHtml = "";
 
-      const postData = {
-        title: title,
-        content: contentHtml
-      };
+      for (const url of urls) {
+        if (mediaType === "image") {
+          contentHtml += getImageHtml(url.trim());
+        } else {
+          contentHtml += getVideoHtml(url.trim(), videoMode);
+        }
+      }
+
+      const postData = { title: title, content: contentHtml };
 
       const res = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
         method: "POST",
