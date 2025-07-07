@@ -31,7 +31,7 @@
   </div>
 
   <label>링크 입력 (여러 줄 가능):</label><br>
-  <textarea id="mediaUrls" rows="6" cols="60" placeholder="https://example.com/abc.jpg 또는 https://imgur.com/abc 등"></textarea><br>
+  <textarea id="mediaUrls" rows="6" cols="60" placeholder="https://example.com/abc.mp4 또는 https://imgur.com/abc 등"></textarea><br>
 
   <button onclick="createBloggerPost()">📝 게시물 작성</button>
   <div id="postStatus" style="margin-top:20px; color:blue;"></div>
@@ -44,7 +44,6 @@
     const videoOptions = document.getElementById("videoOptions");
     const imageOptions = document.getElementById("imageOptions");
 
-    // 토글 보여주기
     mediaTypeRadios.forEach(radio => {
       radio.addEventListener("change", () => {
         const isVideo = radio.value === "video";
@@ -53,7 +52,6 @@
       });
     });
 
-    // HTML 생성
     function getImageHtml(url, mode) {
       let src = url.trim();
       if (mode === "imgur") {
@@ -65,13 +63,24 @@
 
     function getVideoHtml(url, mode) {
       let src = url.trim();
+      let thumbImg = "";
+
       if (mode === "imgur") {
         const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
-        if (match) src = `https://i.imgur.com/${match[1]}.mp4`;
+        if (match) {
+          const code = match[1];
+          src = `https://i.imgur.com/${code}.mp4`;
+          thumbImg = `<p style="text-align:center; margin: 20px 0;">
+                        <img src="https://i.imgur.com/${code}.jpeg" style="max-width:500px;">
+                      </p>`;
+        }
       }
-      return `<p style="text-align:center; margin: 20px 0;">
-        <video src="${src.replace(/&/g, "&amp;")}" autoplay loop controls muted style="max-height:500px;"></video>
-      </p>`;
+
+      const videoTag = `<p style="text-align:center; margin: 20px 0;">
+                          <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" muted style="max-height:500px;"></video>
+                        </p>`;
+
+      return thumbImg + videoTag;
     }
 
     async function getBlogId(token) {
