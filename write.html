@@ -77,7 +77,7 @@
       }
 
       const videoTag = `<p style="text-align:center; margin: 20px 0;">
-                          <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" muted style="max-height:500px;"></video>
+                          <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" autoplay loop controls muted style="max-height:500px;"></video>
                         </p>`;
 
       return thumbImg + videoTag;
