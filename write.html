@@ -52,36 +52,36 @@
       });
     });
 
-    function getImageHtml(url, mode) {
-      let src = url.trim();
-      if (mode === "imgur") {
-        const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
-        if (match) src = `https://i.imgur.com/${match[1]}.jpeg`;
-      }
-      return `<p style="text-align:center; margin: 20px 0;"><img src="${src}" style="max-width:500px;"></p>`;
+function getVideoHtml(url, mode) {
+  let src = url.trim();
+  let thumbImg = "";
+
+  if (mode === "imgur") {
+    const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+    if (match) {
+      const code = match[1];
+      src = `https://i.imgur.com/${code}.mp4`;
+      thumbImg = `<p style="text-align:center; margin: 20px 0;">
+                    <img src="https://i.imgur.com/${code}.jpeg" style="max-width:500px;">
+                  </p>`;
     }
-
-    function getVideoHtml(url, mode) {
-      let src = url.trim();
-      let thumbImg = "";
-
-      if (mode === "imgur") {
-        const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
-        if (match) {
-          const code = match[1];
-          src = `https://i.imgur.com/${code}.mp4`;
-          thumbImg = `<p style="text-align:center; margin: 20px 0;">
-                        <img src="https://i.imgur.com/${code}.jpeg" style="max-width:250px;">
-                      </p>`;
-        }
-      }
-
-      const videoTag = `<p style="text-align:center; margin: 20px 0;">
-                          <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" autoplay loop controls muted style="max-height:500px;"></video>
-                        </p>`;
-
-      return thumbImg + videoTag;
+  } else {
+    // 👇 여기 추가: 원본일 때 썸네일 자동추정
+    if (src.endsWith(".mp4")) {
+      const thumbUrl = src.replace(".mp4", ".jpg"); // 또는 .jpeg
+      thumbImg = `<p style="text-align:center; margin: 20px 0;">
+                    <img src="${thumbUrl}" style="max-width:500px;">
+                  </p>`;
     }
+  }
+
+  const videoTag = `<p style="text-align:center; margin: 20px 0;">
+                      <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" muted style="max-height:500px;"></video>
+                    </p>`;
+
+  return thumbImg + videoTag;
+}
+
 
     async function getBlogId(token) {
       const res = await fetch("https://www.googleapis.com/blogger/v3/users/self/blogs", {
