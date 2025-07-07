@@ -18,6 +18,12 @@
   <input type="radio" name="mediaType" value="image" checked> 이미지
   <input type="radio" name="mediaType" value="video"> 동영상<br><br>
 
+  <div id="imageOptions">
+    <label>이미지 방식:</label><br>
+    <input type="radio" name="imageMode" value="original" checked> 원본 링크
+    <input type="radio" name="imageMode" value="imgur"> Imgur 변환<br><br>
+  </div>
+
   <div id="videoOptions" style="display:none;">
     <label>동영상 방식:</label><br>
     <input type="radio" name="videoMode" value="original" checked> 원본 링크
@@ -36,28 +42,33 @@
 
     const mediaTypeRadios = document.getElementsByName("mediaType");
     const videoOptions = document.getElementById("videoOptions");
+    const imageOptions = document.getElementById("imageOptions");
 
-    // 이미지/동영상 선택에 따라 옵션 토글
+    // 토글 보여주기
     mediaTypeRadios.forEach(radio => {
       radio.addEventListener("change", () => {
-        videoOptions.style.display = radio.value === "video" ? "block" : "none";
+        const isVideo = radio.value === "video";
+        videoOptions.style.display = isVideo ? "block" : "none";
+        imageOptions.style.display = isVideo ? "none" : "block";
       });
     });
 
-    function getImageHtml(url) {
-      return `<p style="text-align:center; margin: 20px 0;"><img src="${url}" style="max-width:500px;"></p>`;
+    // HTML 생성
+    function getImageHtml(url, mode) {
+      let src = url.trim();
+      if (mode === "imgur") {
+        const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+        if (match) src = `https://i.imgur.com/${match[1]}.jpeg`;
+      }
+      return `<p style="text-align:center; margin: 20px 0;"><img src="${src}" style="max-width:500px;"></p>`;
     }
 
     function getVideoHtml(url, mode) {
       let src = url.trim();
-
       if (mode === "imgur") {
         const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
-        if (match) {
-          src = `https://i.imgur.com/${match[1]}.mp4`;
-        }
+        if (match) src = `https://i.imgur.com/${match[1]}.mp4`;
       }
-
       return `<p style="text-align:center; margin: 20px 0;">
         <video src="${src.replace(/&/g, "&amp;")}" autoplay loop controls muted style="max-height:500px;"></video>
       </p>`;
@@ -76,6 +87,7 @@
       const urls = document.getElementById("mediaUrls").value.trim().split("\n").filter(line => line.trim() !== "");
       const mediaType = [...document.getElementsByName("mediaType")].find(r => r.checked).value;
       const videoMode = [...document.getElementsByName("videoMode")].find(r => r.checked)?.value;
+      const imageMode = [...document.getElementsByName("imageMode")].find(r => r.checked)?.value;
 
       if (!title || urls.length === 0) {
         alert("제목과 링크를 모두 입력하세요.");
@@ -92,7 +104,7 @@
 
       for (const url of urls) {
         if (mediaType === "image") {
-          contentHtml += getImageHtml(url.trim());
+          contentHtml += getImageHtml(url.trim(), imageMode);
         } else {
           contentHtml += getVideoHtml(url.trim(), videoMode);
         }
