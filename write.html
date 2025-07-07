@@ -4,15 +4,20 @@
   <meta charset="UTF-8">
   <title>Blogger 포스팅 도구</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    textarea, input, select { margin-bottom: 10px; }
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; }
+    textarea, input, select, button { margin: 5px 0; padding: 5px; }
+    .link-group { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+    .link-group input { flex: 1; }
+    .link-label { font-weight: bold; margin-top: 15px; }
+    #thumbnailInput { display: none; }
+    .btn-add { margin-top: 5px; }
   </style>
 </head>
 <body>
   <h2>📤 Blogger 자동 포스팅</h2>
 
   <label>제목:</label><br>
-  <input id="postTitle" placeholder="게시물 제목" style="width: 400px;"><br><br>
+  <input id="postTitle" placeholder="게시물 제목" style="width: 100%;"><br><br>
 
   <label>종류 선택:</label><br>
   <input type="radio" name="mediaType" value="image" checked> 이미지
@@ -28,60 +33,102 @@
     <label>동영상 방식:</label><br>
     <input type="radio" name="videoMode" value="original" checked> 원본 링크
     <input type="radio" name="videoMode" value="imgur"> Imgur 변환<br><br>
+
+    <div id="thumbnailInput">
+      <label>썸네일 이미지 주소 (선택):</label><br>
+      <input id="manualThumbnailUrl" placeholder="https://example.com/thumb.jpg" style="width: 100%;"><br><br>
+    </div>
   </div>
 
-  <label>링크 입력 (여러 줄 가능):</label><br>
-  <textarea id="mediaUrls" rows="6" cols="60" placeholder="https://example.com/abc.mp4 또는 https://imgur.com/abc 등"></textarea><br>
+  <div class="link-label">링크 목록:</div>
+  <div id="linkList"></div>
+  <button class="btn-add" onclick="addInput('image')">+ 이미지 추가</button>
+  <button class="btn-add" onclick="addInput('video')">+ 동영상 추가</button><br><br>
 
   <button onclick="createBloggerPost()">📝 게시물 작성</button>
   <div id="postStatus" style="margin-top:20px; color:blue;"></div>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get("token");
+    const accessToken = new URLSearchParams(window.location.search).get("token");
+
+    const linkListDiv = document.getElementById("linkList");
+
+    function addInput(type) {
+      const div = document.createElement("div");
+      div.className = "link-group";
+      div.dataset.type = type;
+      div.innerHTML = `
+        <span>${type === "image" ? "🖼️" : "🎞️"}</span>
+        <input type="text" placeholder="https://example.com/..." />
+        <button onclick="this.parentElement.remove()">❌</button>
+      `;
+      linkListDiv.appendChild(div);
+    }
 
     const mediaTypeRadios = document.getElementsByName("mediaType");
-    const videoOptions = document.getElementById("videoOptions");
+    const videoModeRadios = document.getElementsByName("videoMode");
     const imageOptions = document.getElementById("imageOptions");
+    const videoOptions = document.getElementById("videoOptions");
+    const thumbnailInput = document.getElementById("thumbnailInput");
 
-    mediaTypeRadios.forEach(radio => {
-      radio.addEventListener("change", () => {
-        const isVideo = radio.value === "video";
-        videoOptions.style.display = isVideo ? "block" : "none";
-        imageOptions.style.display = isVideo ? "none" : "block";
-      });
-    });
+    mediaTypeRadios.forEach(r => r.addEventListener("change", updateUI));
+    videoModeRadios.forEach(r => r.addEventListener("change", updateUI));
 
-function getVideoHtml(url, mode) {
-  let src = url.trim();
-  let thumbImg = "";
+    function updateUI() {
+      const mediaType = [...mediaTypeRadios].find(r => r.checked).value;
+      const videoMode = [...videoModeRadios].find(r => r.checked)?.value;
 
-  if (mode === "imgur") {
-    const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
-    if (match) {
-      const code = match[1];
-      src = `https://i.imgur.com/${code}.mp4`;
-      thumbImg = `<p style="text-align:center; margin: 20px 0;">
-                    <img src="https://i.imgur.com/${code}.jpeg" style="max-width:500px;">
-                  </p>`;
+      imageOptions.style.display = mediaType === "image" ? "block" : "none";
+      videoOptions.style.display = mediaType === "video" ? "block" : "none";
+      thumbnailInput.style.display = (mediaType === "video" && videoMode === "original") ? "block" : "none";
     }
-  } else {
-    // 👇 여기 추가: 원본일 때 썸네일 자동추정
-    if (src.endsWith(".mp4")) {
-      const thumbUrl = src.replace(".mp4", ".jpg"); // 또는 .jpeg
-      thumbImg = `<p style="text-align:center; margin: 20px 0;">
-                    <img src="${thumbUrl}" style="max-width:500px;">
-                  </p>`;
+
+    function getImageHtml(url, mode) {
+      let src = url.trim();
+      if (mode === "imgur") {
+        const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+        if (match) src = `https://i.imgur.com/${match[1]}.jpeg`;
+      }
+      return `<p style="text-align:center; margin: 20px 0;"><img src="${src}" style="max-width:500px;"></p>`;
     }
-  }
 
-  const videoTag = `<p style="text-align:center; margin: 20px 0;">
-                      <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" muted style="max-height:500px;"></video>
-                    </p>`;
+    function getVideoHtml(urls, mode, manualThumb) {
+      let html = "";
+      let isFirst = true;
 
-  return thumbImg + videoTag;
-}
+      for (const url of urls) {
+        let src = url.trim();
+        let thumbImg = "";
 
+        if (mode === "imgur") {
+          const match = src.match(/imgur\.com\/([a-zA-Z0-9]+)/);
+          if (match) {
+            const code = match[1];
+            src = `https://i.imgur.com/${code}.mp4`;
+            if (isFirst) {
+              thumbImg = `<p style="text-align:center; margin: 20px 0;">
+                            <img src="https://i.imgur.com/${code}.jpeg" style="max-width:500px;">
+                          </p>`;
+              isFirst = false;
+            }
+          }
+        } else {
+          if (isFirst && manualThumb) {
+            thumbImg = `<p style="text-align:center; margin: 20px 0;">
+                          <img src="${manualThumb}" style="max-width:500px;">
+                        </p>`;
+            isFirst = false;
+          }
+        }
+
+        const videoTag = `<p style="text-align:center; margin: 20px 0;">
+                            <video src="${src.replace(/&/g, "&amp;")}" controls preload="metadata" muted style="max-height:500px;"></video>
+                          </p>`;
+        html += thumbImg + videoTag;
+      }
+
+      return html;
+    }
 
     async function getBlogId(token) {
       const res = await fetch("https://www.googleapis.com/blogger/v3/users/self/blogs", {
@@ -93,30 +140,38 @@ function getVideoHtml(url, mode) {
 
     async function createBloggerPost() {
       const title = document.getElementById("postTitle").value.trim();
-      const urls = document.getElementById("mediaUrls").value.trim().split("\n").filter(line => line.trim() !== "");
-      const mediaType = [...document.getElementsByName("mediaType")].find(r => r.checked).value;
+      const manualThumb = document.getElementById("manualThumbnailUrl").value.trim();
       const videoMode = [...document.getElementsByName("videoMode")].find(r => r.checked)?.value;
       const imageMode = [...document.getElementsByName("imageMode")].find(r => r.checked)?.value;
 
-      if (!title || urls.length === 0) {
-        alert("제목과 링크를 모두 입력하세요.");
+      if (!title) {
+        alert("제목을 입력하세요.");
         return;
       }
-
       if (!accessToken) {
         alert("❌ 토큰이 없습니다. login.html에서 로그인해주세요.");
         return;
       }
 
       const blogId = await getBlogId(accessToken);
+      const linkInputs = [...linkListDiv.querySelectorAll(".link-group")];
       let contentHtml = "";
+      let videoUrls = [];
 
-      for (const url of urls) {
-        if (mediaType === "image") {
-          contentHtml += getImageHtml(url.trim(), imageMode);
+      for (const group of linkInputs) {
+        const type = group.dataset.type;
+        const url = group.querySelector("input").value.trim();
+        if (!url) continue;
+
+        if (type === "image") {
+          contentHtml += getImageHtml(url, imageMode);
         } else {
-          contentHtml += getVideoHtml(url.trim(), videoMode);
+          videoUrls.push(url);
         }
+      }
+
+      if (videoUrls.length > 0) {
+        contentHtml += getVideoHtml(videoUrls, videoMode, manualThumb);
       }
 
       const postData = { title: title, content: contentHtml };
@@ -131,7 +186,6 @@ function getVideoHtml(url, mode) {
       });
 
       const result = await res.json();
-
       if (result.id) {
         document.getElementById("postStatus").innerHTML =
           `✅ 게시 성공! <a href="${result.url}" target="_blank">🔗 게시물 보기</a>`;
@@ -140,6 +194,8 @@ function getVideoHtml(url, mode) {
         console.error(result);
       }
     }
+
+    updateUI();
   </script>
 </body>
 </html>
